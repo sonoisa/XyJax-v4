@@ -1,8 +1,8 @@
-# XyJax v3
- -- Xy-pic extension for **MathJax version 3** --
+# XyJax v4
+ -- Xy-pic extension for **MathJax version 4** --
 
 ----
-XyJax is an almost Xy-pic compatible extension for **MathJax version 3**.
+XyJax is an almost Xy-pic compatible extension for **MathJax version 4**.
 
 This extension enables you to draw various graphs and diagrams.
 
@@ -16,9 +16,9 @@ This software is under development.
 
 ## Installation instructions
 
-### Using XyJax-v3 from a CDN
+### Using XyJax-v4 from a CDN
 
-(ref. test/sample-xyjax-v3-CDN.html)
+(ref. test/sample-xyjax-v4-CDN.html)
 
 1. In your html, configure it to load the xypic.js.
 ```
@@ -26,21 +26,21 @@ This software is under development.
   MathJax = {
     loader: {
       load: ['[custom]/xypic.js'],
-      paths: {custom: 'https://cdn.jsdelivr.net/gh/sonoisa/XyJax-v3@3.0.1/build/'}
+      paths: {custom: 'https://cdn.jsdelivr.net/gh/sonoisa/XyJax-v4@4.0.0/build/'}
     },
     tex: {
       packages: {'[+]': ['xypic']}
     }
   };
 </script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.1.4/es5/tex-chtml-full.js"></script>
-<!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.1.4/es5/tex-svg-full.js"></script> -->
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+<!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-svg.js"></script> -->
 ```
 
 
-### Hosting your own copy of XyJax-v3
+### Hosting your own copy of XyJax-v4
 
-(ref. test/sample-xyjax-v3-chtml.html and test/sample-xyjax-v3-svg.html)
+(ref. test/sample-xyjax-v4-chtml.html and test/sample-xyjax-v4-svg.html)
 
 1. Download build/xypic.js. The rest of the files are not necessary for use. 
 
@@ -58,15 +58,15 @@ This software is under development.
     }
   };
 </script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.1.4/es5/tex-chtml-full.js"></script>
-<!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.1.4/es5/tex-svg-full.js"></script> -->
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+<!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-svg.js"></script> -->
 ```
 
 
 ## Supported MathJax Functions
 
 - Supported MathJax version:
-    - 3.1.4+
+    - 4.0.0+ (for MathJax 3, use [XyJax-v3](https://github.com/sonoisa/XyJax-v3))
 - Supported Renderers:
     - CHTML
     - SVG
@@ -75,22 +75,25 @@ This software is under development.
 
 ## For Developers
 
-### How to build xypic.js for production
+### How to build xypic.js
 ```
-$ git clone https://github.com/sonoisa/XyJax-v3 XyJax-v3
-$ cd XyJax-v3
-$ npm run icloud_nosync_install
+$ git clone https://github.com/sonoisa/XyJax-v4 XyJax-v4
+$ cd XyJax-v4
+$ npm install
 $ npm run clean
 $ npm run build
 ```
 
+The build configuration is in components/xypic/config.json
+(the MathJax 4 component build system is used: `@mathjax/src/components/bin/pack`).
 
-### Hot to build MathJax and xypic.js for debugging
+
+### How to test
 ```
-$ git clone https://github.com/sonoisa/XyJax-v3 XyJax-v3
-$ cd XyJax-v3
-$ npm run icloud_nosync_install
-$ npm run clean
-# npm run build_mathjax_for_debug
-$ npm run build
+$ npm test
 ```
+
+This renders all diagrams in test/test-xyjax-v4.html with build/xypic.js
+in Node.js (CHTML and SVG output), and reports any errors.
+To check the rendering visually, open test/test-xyjax-v4.html in a browser
+(serve the repository directory with a local web server).

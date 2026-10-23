@@ -16,11 +16,11 @@
  */
 
 
-import {SVGWrapper} from "mathjax-full/js/output/svg/Wrapper.js";
-import {SVGWrappers} from "mathjax-full/js/output/svg/Wrappers.js";
+import {SvgWrapper} from "@mathjax/src/js/output/svg/Wrapper.js";
+import {SvgWrappers} from "@mathjax/src/js/output/svg/Wrappers.js";
 
 import createXypicError from "../core/XypicError.js";
-import {BBox} from 'mathjax-full/js/util/BBox.js';
+import {BBox} from '@mathjax/src/js/util/BBox.js';
 
 import {xypicGlobalContext} from "../core/xypicGlobalContext.js";
 import {AST} from "../input/XyNodes.js";
@@ -30,12 +30,23 @@ import {Graphics} from "./Graphics.js";
 import {DrawingContext} from "./DrawingContext.js";
 import {Env} from "./Curves.js";
 import {XypicUtil} from "../util/XypicUtil.js";
+import {getOutputJaxFactory} from "./OutputJaxUtil.js";
 
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const XLINKNS = 'http://www.w3.org/1999/xlink';
 
 const round2 = XypicUtil.round2;
+
+// Register the wrapper class in the default wrapper map, and also in the
+// wrapper factory of an already-created SVG output jax (if any).
+function registerWrapper(wrappers, wrapperClass) {
+	wrappers[wrapperClass.kind] = wrapperClass;
+	const factory = getOutputJaxFactory("svg");
+	if (factory) {
+		factory.setNodeClass(wrapperClass.kind, wrapperClass);
+	}
+}
 
 export function CreateSVGWrapper(wrapper, wrappers) {
 
@@ -44,12 +55,11 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 			super(factory, node, parent);
 
 			const wrapperOfTextObjectMap = xypicGlobalContext.wrapperOfTextObjectMap;
-			const textMmls = node.textMmls;
+			const textMmlIds = node.textMmlIds;
 			const wrappers = this.childNodes;
-			const childCount = textMmls.length;
+			const childCount = Math.min(textMmlIds.length, wrappers.length);
 			for (let i = 0; i < childCount; i++) {
-				const textObjectId = textMmls[i].xypicTextObjectId;
-				wrapperOfTextObjectMap[textObjectId] = wrappers[i];
+				wrapperOfTextObjectMap[textMmlIds[i]] = wrappers[i];
 			}
 
 			// このxypicノードが内包するTextObjectのDOM
@@ -58,6 +68,12 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 
 		getElement() {
 			return this.svgNode;
+		}
+
+		// Forced line breaks (e.g. "\\" in \text{...}) inside a text object must be
+		// handled within that text object, not by the math expression containing this xypic node.
+		breakTop(mrow, child) {
+			return mrow;
 		}
 
 		appendTextObject(textObject) {
@@ -79,7 +95,8 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 			return wrapper;
 		}
 
-		toSVG(parent) {
+		toSVG(parents) {
+			const parent = parents[0];
 			const oldSvgForDebug = xypicGlobalContext.svgForDebug;
 			const oldSvgForTestLayout = xypicGlobalContext.svgForTestLayout;
 
@@ -168,7 +185,7 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 
 				adaptor.setAttribute(thisRoot, "stroke", svg.getCurrentColor());
 				adaptor.setAttribute(thisRoot, "fill", svg.getCurrentColor());
-				textObjectWrapper.toSVG(thisRoot);
+				textObjectWrapper.toSVG([thisRoot]);
 
 				const origin = svg.getOrigin();
 				adaptor.setAttribute(thisRoot, "data-x", (c.x - halfW - origin.x + p * scale));
@@ -281,7 +298,7 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 		}
 
 		_toSVG(parent) {
-			const svgNode = this.standardSVGnode(parent);
+			const svgNode = this.standardSvgNodes([parent])[0];
 			this.svgNode = svgNode;
 			const adaptor = this.adaptor;
 
@@ -368,12 +385,21 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 		}
 	}
 
-	wrappers[SVGxypic.prototype.kind] = SVGxypic;
+	SVGxypic.kind = AST.xypic.prototype.kind;
+	registerWrapper(wrappers, SVGxypic);
 
 
 	class SVGnewdir extends AbstractSVGxypic {
 		constructor(factory, node, parent=null) {
 			super(factory, node, parent);
+			// MathJax 4 computes the bounding boxes of the whole expression before rendering,
+			// so the new direction has to be registered here, before any xypic node uses it.
+			this.registerNewdir();
+		}
+
+		registerNewdir() {
+			const newdir = this.node.cmd;
+			xypicGlobalContext.repositories.dirRepository.put(newdir.dirMain, newdir.compositeObject);
 		}
 
 		get kind() {
@@ -381,17 +407,17 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 		}
 
 		computeBBox(bbox, recompute=false) {
-			let newdir = this.node.cmd;
-			xypicGlobalContext.repositories.dirRepository.put(newdir.dirMain, newdir.compositeObject);
+			this.registerNewdir();
 		}
 
 		_toSVG(parent) {
-			let newdir = this.node.cmd;
-			xypicGlobalContext.repositories.dirRepository.put(newdir.dirMain, newdir.compositeObject);
+			this.svgNode = this.standardSvgNodes([parent])[0];
+			this.registerNewdir();
 		}
 	}
 
-	wrappers[SVGnewdir.prototype.kind] = SVGnewdir;
+	SVGnewdir.kind = AST.xypic.newdir.prototype.kind;
+	registerWrapper(wrappers, SVGnewdir);
 
 
 	class SVGincludegraphics extends AbstractSVGxypic {
@@ -431,7 +457,7 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 		}
 
 		_toSVG(parent) {
-			const svgNode = this.standardSVGnode(parent);
+			const svgNode = this.standardSvgNodes([parent])[0];
 			this.svgNode = svgNode;
 			const fixedScale = this.fixed(1);
 			const img = this.svg("image", {
@@ -447,9 +473,10 @@ export function CreateSVGWrapper(wrapper, wrappers) {
 		}
 	}
 
-	wrappers[SVGincludegraphics.prototype.kind] = SVGincludegraphics;
+	SVGincludegraphics.kind = AST.xypic.includegraphics.prototype.kind;
+	registerWrapper(wrappers, SVGincludegraphics);
 }
 
-if (SVGWrapper !== undefined) {
-	CreateSVGWrapper(SVGWrapper, SVGWrappers);
+if (SvgWrapper !== undefined) {
+	CreateSVGWrapper(SvgWrapper, SvgWrappers);
 }

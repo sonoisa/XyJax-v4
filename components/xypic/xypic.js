@@ -1,6 +1,6 @@
 /*************************************************************
  *
- *  Copyright (c) 2011-2021 Isao Sonobe <sonoisa@gmail.com>
+ *  Copyright (c) 2011-2026 Isao Sonobe <sonoisa@gmail.com>
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,16 +29,27 @@ import {CreateSVGWrapper} from '../../src/output/SVGWrappers.js';
 //
 const {Loader} = MathJax._.components.loader;
 if (Loader) {
-  if (!MathJax._.output.chtml.Wrapper.CHTMLWrapper) {
+  //
+  //  Record the version information for this component (the name depends on how it was loaded,
+  //    e.g. '[custom]/xypic.js'), so that the loader does not warn about it.
+  //
+  const {Package} = MathJax._.components.package;
+  for (const name of Package.packages.keys()) {
+    if (/(^|\/)xypic(\.js)?$/.test(name)) {
+      Loader.saveVersion(name);
+    }
+  }
+
+  if (!MathJax._.output.chtml.Wrapper.ChtmlWrapper) {
     Loader.ready('output/chtml').then(() => {
       const chtml = MathJax._.output.chtml
-      CreateCHTMLWrapper(chtml.Wrapper.CHTMLWrapper, chtml.Wrappers_ts.CHTMLWrappers);
+      CreateCHTMLWrapper(chtml.Wrapper.ChtmlWrapper, chtml.Wrappers_ts.ChtmlWrappers);
     }).catch(err => console.log('Caught', err));
   }
-  if (!MathJax._.output.svg.Wrapper.SVGWrapper) {
+  if (!MathJax._.output.svg.Wrapper.SvgWrapper) {
     Loader.ready('output/svg').then(() => {
       const svg = MathJax._.output.svg;
-      CreateSVGWrapper(svg.Wrapper.SVGWrapper, svg.Wrappers_ts.SVGWrappers);
+      CreateSVGWrapper(svg.Wrapper.SvgWrapper, svg.Wrappers_ts.SvgWrappers);
     }).catch(err => console.log('Caught', err));
   }
 }

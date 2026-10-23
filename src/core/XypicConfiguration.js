@@ -19,11 +19,11 @@
 // for DEBUGGING
 // import {} from "../util/EnableSourceMap.js";
 
-import {Configuration} from "mathjax-full/js/input/tex/Configuration.js";
-import {CommandMap, EnvironmentMap} from "mathjax-full/js/input/tex/SymbolMap.js";
-import BaseMethods from "mathjax-full/js/input/tex/base/BaseMethods.js";
-import ParseMethods from "mathjax-full/js/input/tex/ParseMethods.js";
-import TexParser from "mathjax-full/js/input/tex/TexParser.js";
+import {Configuration} from "@mathjax/src/js/input/tex/Configuration.js";
+import {CommandMap, EnvironmentMap} from "@mathjax/src/js/input/tex/TokenMap.js";
+import BaseMethods from "@mathjax/src/js/input/tex/base/BaseMethods.js";
+import ParseMethods from "@mathjax/src/js/input/tex/ParseMethods.js";
+import TexParser from "@mathjax/src/js/input/tex/TexParser.js";
 
 import createXypicError from "../core/XypicError.js";
 
@@ -126,9 +126,9 @@ const XypicEnvironmentMap = new EnvironmentMap("xypic-environment", ParseMethods
 function initializeXypicGlobalContext() {
 	// xypicGlobalContext.repositories.modifierRepository = new ModifierRepository();
 	// xypicGlobalContext.repositories.dirRepository = new DirRepository();
-	xypicGlobalContext.xypicCommandIdCounter = 0;
-	xypicGlobalContext.xypicCommandMap = {};
-	xypicGlobalContext.textObjectIdCounter = 0;
+	// The command ids and text object ids are not reset, so that they stay unique within the page:
+	// the xypic nodes may be re-created later from their MathML serialization
+	// (e.g. by the semantic enrichment of MathJax 4), and they refer to the commands by these ids.
 	xypicGlobalContext.wrapperOfTextObjectMap = {};
 }
 

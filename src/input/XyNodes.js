@@ -16,8 +16,8 @@
  */
 
 
-import {AbstractMmlNode, TEXCLASS} from "mathjax-full/js/core/MmlTree/MmlNode.js";
-import {MML} from "mathjax-full/js/core/MmlTree/MML.js";
+import {AbstractMmlNode, TEXCLASS} from "@mathjax/src/js/core/MmlTree/MmlNode.js";
+import {MML} from "@mathjax/src/js/core/MmlTree/MML.js";
 import {xypicGlobalContext} from "../core/xypicGlobalContext.js";
 
 
@@ -25,19 +25,31 @@ export class AST {};
 
 
 class BaseXyMmlNode extends AbstractMmlNode {
-	constructor(mmlFactory, properties, textMmls) {
+	// The node may be created either by the TeX input jax (with properties and text mmls),
+	// or from its MathML serialization (e.g. by the semantic enrichment of MathJax 4),
+	// in which case the attributes and children are set after construction.
+	// So the xypic data is looked up from the attributes when needed.
+	constructor(mmlFactory, properties = {}, textMmls = []) {
 		super(mmlFactory, properties, textMmls);
-		this.textMmls = textMmls;
-		this.texClass = TEXCLASS.ORD;
+		this.texclass = TEXCLASS.ORD;
 
-		const commandId = properties["data-cmd-id"];
-		const command = xypicGlobalContext.xypicCommandMap[commandId];
-		this.cmd = command;
-
-		const textMmlIds = JSON.parse(properties["data-text-mml-ids"]);
-		for (let i = 0, n = textMmlIds.length; i < n; i++) {
+		const textMmlIds = this.textMmlIds;
+		for (let i = 0, n = Math.min(textMmlIds.length, textMmls.length); i < n; i++) {
 			textMmls[i].xypicTextObjectId = textMmlIds[i];
 		}
+	}
+
+	get cmd() {
+		return xypicGlobalContext.xypicCommandMap[this.attributes.get("data-cmd-id")];
+	}
+
+	get textMmlIds() {
+		const ids = this.attributes.get("data-text-mml-ids");
+		return (ids ? JSON.parse(ids) : []);
+	}
+
+	get textMmls() {
+		return this.childNodes;
 	}
 }
 

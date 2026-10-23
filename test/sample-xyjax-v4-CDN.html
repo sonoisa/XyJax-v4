@@ -3,27 +3,26 @@
   <meta charset="utf-8">
   <meta http-equiv="x-ua-compatible" content="ie=edge">
   <meta name="viewport" content="width=device-width">
-  <title>XyJax v3 Sample Page (CHTML)</title>
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <title>XyJax v4 Sample Page (CDN)</title>
   <script>
   MathJax = {
     loader: {
       load: ['[custom]/xypic.js'],
-      paths: {custom: '../build'}
+      paths: {custom: 'https://cdn.jsdelivr.net/gh/sonoisa/XyJax-v4@4.0.0/build/'}
     },
     tex: {
       packages: {'[+]': ['xypic']}
     }
   };
   </script>
-  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.0/es5/tex-chtml-full.js"></script>
-  <!-- <script id="MathJax-script" async src="../node_modules/mathjax-full/es5/tex-chtml-full.js"></script> -->
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+  <!-- <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-svg.js"></script> -->
 </head>
 <body>
 
 <blockquote>
 
-<h1>XyJax version 3 Sample Page (CHTML)</h1>
+<h1>XyJax version 4 Sample Page (CDN)</h1>
 <hr>
 <p>
 

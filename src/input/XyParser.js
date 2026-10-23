@@ -19,6 +19,7 @@
 import {List} from "../fp/List.js"
 import {Option} from "../fp/Option.js"
 import {Parsers} from "../fp/Parsers.js"
+import TexError from "@mathjax/src/js/input/tex/TexError.js";
 import {AST} from "./XyNodes.js"
 
 
@@ -36,6 +37,23 @@ var rep1 = function (x) { return Parsers.lazyParser(x)().rep1(); }
 var opt = function (x) { return Parsers.lazyParser(x)().opt(); }
 var not = function (x) { return Parsers.not(Parsers.lazyParser(x)); }
 var success = Parsers.success;
+
+// Applies a parser for an alternative that may be abandoned later.
+// TeX code is parsed by MathJax while parsing (to create text nodes); if it is not valid TeX
+// in this alternative (e.g. "\frac{a}" of "\frac{a}{b}"), the alternative fails
+// instead of making the whole xypic command fail.
+var tentative = function (parser) {
+	return new Parsers.Parser(function (input) {
+		try {
+			return parser.apply(input);
+		} catch (e) {
+			if (e instanceof TexError) {
+				return new Parsers.Failure(e.message, input);
+			}
+			throw e;
+		}
+	});
+};
 var memo = function (parser) {
 	return function () {
 		var m = parser.memo;
@@ -1405,13 +1423,14 @@ var grammar = {
 	// <loose objectbox> ::= <objectbox>
 	//                   |   /[^\\{}%&]+/* ( ( '\' not( '\' | <decor command names> ) ( '{' | '}' | '%' | '&' ) | '{' <text> '}' | /%[^\r\n]*(\r\n|\r|\n)?/ ) /[^\\{}%&]+/* )*
 	// <decor command names> ::= 'ar' | 'xymatrix' | 'PATH' | 'afterPATH'
-	//                       |   'save' | 'restore' | 'POS' | 'afterPOS' | 'drop' | 'connect' | 'xyignore'
+	//                       |   'save' | 'restore' | 'POS' | 'afterPOS' | 'drop' | 'connect' | 'xyignore' | 'xyshowAST' | <twocell command names>
+	//                       (each followed by a non-letter, as a TeX control word)
 	looseObjectbox: memo(function () {
 		return or(
 			// The (strict) objectbox is used only when it is the whole entry,
 			// i.e. it is followed by the end of the entry.
 			// Otherwise (e.g. "\mathsf{A}^{x}", "{}_cE", "\ar@{>->}[r]") the entry is parsed as a loose TeX text.
-			p.objectbox().andl(fun(Parsers.guard(fun(p.endOfEntry())))).to(function (o) { return {
+			tentative(p.objectbox()).andl(fun(Parsers.guard(fun(p.endOfEntry())))).to(function (o) { return {
 				isEmpty:false, object:o
 			} }),
 			regex(/^[^\\{}%&]+/).opt().to(function (rs) { return rs.getOrElse(""); }).and(fun(
@@ -1419,7 +1438,7 @@ var grammar = {
 					or(
 						elem("{").andr(p.text).andl(felem("}")).to(function (t) { return "{" + t + "}"; }),
 						elem("\\").andr(fun(
-							not(regex(/^(\\|ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|xyignore|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)/))
+							not(regex(/^(\\|(ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|xyignore|xyshowAST|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)(?![a-zA-Z]))/))
 						)).andr(fun(
 							regex(/^[{}%&]/).opt().to(function (c) { return c.getOrElse(""); })
 						)).to(function (t) {

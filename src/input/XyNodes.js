@@ -39,6 +39,17 @@ class BaseXyMmlNode extends AbstractMmlNode {
 		}
 	}
 
+	// Each text object (entry, label, ...) is an independent formula, like a cell of mtable.
+	// Without this, the TeX classes of the nodes in the text objects are not computed,
+	// and so the spacing around operators (e.g. "\arctan x", "X \times Y") is lost.
+	setTeXclass(prev) {
+		this.getPrevClass(prev);
+		for (const child of this.childNodes) {
+			child.setTeXclass(null);
+		}
+		return this;
+	}
+
 	get cmd() {
 		return xypicGlobalContext.xypicCommandMap[this.attributes.get("data-cmd-id")];
 	}

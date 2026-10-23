@@ -1,0 +1,36 @@
+{
+	"name": "node",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "..",
+		"args": {}
+	},
+	"mounts": [
+		"source=${localEnv:HOME}/.agent/claude/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.agent/codex/.codex,target=/home/vscode/.codex,type=bind,consistency=cached"
+	],
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"terminal.integrated.profiles.linux": {
+			"bash (login)": {
+				"path": "/bin/bash"
+			}
+		}
+	},
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [],
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"forwardPorts": [
+		8888
+	],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "",
+	// Comment out to connect as root instead.
+	"remoteUser": "ubuntu",
+	"containerEnv": {
+		"TZ": "Asia/Tokyo"
+	},
+	"remoteEnv": {
+		"PATH": "/home/ubuntu/.local/bin:${containerEnv:PATH}"
+	}
+}

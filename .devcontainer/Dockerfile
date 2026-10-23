@@ -50,6 +50,15 @@ RUN apt-get -y update && \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 
+# LaTeX + Xy-pic, to compare XyJax output with the real Xy-pic (latex + dvisvgm)
+RUN apt-get -y update && \
+    apt-get -y install --no-install-recommends \
+      texlive-latex-base \
+      texlive-pictures \
+      dvisvgm \
+    && apt-get -y clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Make gcc 9 the default
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 1 --slave /usr/bin/g++ g++ /usr/bin/g++-9 && \
     update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-9 1
@@ -79,6 +88,10 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | b
   && nvm install 24 \
   && nvm alias default 24 \
   && nvm use default
+
+# Headless Chromium (Playwright) and its system libraries, to check the rendering in a browser
+RUN . /home/$DOCKER_USER/.nvm/nvm.sh \
+  && npx -y playwright@1.55.0 install --with-deps chromium
 
 # Claude Code setup
 RUN curl -fsSL https://claude.ai/install.sh | bash

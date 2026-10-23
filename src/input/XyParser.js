@@ -398,7 +398,8 @@ var grammar = {
 			}),
 			p.txt,
 			p.curve,
-			regex(/^(\\[a-zA-Z@][a-zA-Z0-9@]+)/).andl(flit("{")).and(p.text).andl(flit("}")).and(p.textNodeCreator).to(function (btc) {
+			// (decor commands such as "\ar@{->}" are not TeX boxes)
+			regex(/^(\\(?!(ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|relax|xyignore|xyshowAST|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)(?![a-zA-Z]))[a-zA-Z@][a-zA-Z0-9@]+)/).andl(flit("{")).and(p.text).andl(flit("}")).and(p.textNodeCreator).to(function (btc) {
 				var bt = btc.head;
 				var createTextNode = btc.tail;
 				return p.toMath(bt.head + "{" + bt.tail + "}", createTextNode);

@@ -24,6 +24,7 @@ import {CommandMap, EnvironmentMap} from "@mathjax/src/js/input/tex/TokenMap.js"
 import BaseMethods from "@mathjax/src/js/input/tex/base/BaseMethods.js";
 import ParseMethods from "@mathjax/src/js/input/tex/ParseMethods.js";
 import TexParser from "@mathjax/src/js/input/tex/TexParser.js";
+import {AbstractMmlNode} from "@mathjax/src/js/core/MmlTree/MmlNode.js";
 
 import createXypicError from "../core/XypicError.js";
 
@@ -38,12 +39,42 @@ import {ModifierRepository, DirRepository} from "../output/Repositories.js";
 import {} from "../output/AugmentXyNodes.js";
 
 
+// Returns the text mmls (members of textMmlSet) that are referenced from the parsed xypic command.
+function collectUsedTextMmls(command, textMmlSet) {
+	const used = new Set();
+	const visited = new Set();
+	const stack = [command];
+	while (stack.length > 0) {
+		const obj = stack.pop();
+		if (obj === null || typeof obj !== "object" || visited.has(obj)) {
+			continue;
+		}
+		visited.add(obj);
+		if (textMmlSet.has(obj)) {
+			used.add(obj);
+			continue;
+		}
+		if (obj instanceof AbstractMmlNode) {
+			continue;
+		}
+		for (const key of Object.keys(obj)) {
+			stack.push(obj[key]);
+		}
+	}
+	return used;
+}
+
 function parseXypic(texParser, xyParser, mmlKind) {
 	const textMmls = [];
 	const textMmlIds = [];
 
 	const createTextNode = function (text) {
-		const textMml = new TexParser(text, texParser.stack.env, texParser.configuration).mml();
+		let textMml = new TexParser(text, texParser.stack.env, texParser.configuration).mml();
+		if (textMml.isInferred) {
+			// An inferred mrow would be flattened into the xypic node, which breaks the
+			// correspondence between the text objects and the children of the xypic node.
+			textMml = texParser.create("node", "mrow", textMml.childNodes.slice());
+		}
 		const textObjectId = xypicGlobalContext.textObjectIdCounter;
 		xypicGlobalContext.textObjectIdCounter++;
 		textMmls.push(textMml);
@@ -63,11 +94,24 @@ function parseXypic(texParser, xyParser, mmlKind) {
 	if (result.successful) {
 		const commandId = "" + xypicGlobalContext.xypicCommandIdCounter;
 		xypicGlobalContext.xypicCommandIdCounter++;
-		xypicGlobalContext.xypicCommandMap[commandId] = result.get();
+		const command = result.get();
+		xypicGlobalContext.xypicCommandMap[commandId] = command;
 
-		const textMmlIdsJson = JSON.stringify(textMmlIds);
+		// Text nodes may also have been created in alternatives that the parser tried and abandoned
+		// (backtracking). Keep only the ones used in the parsed command.
+		const usedTextMmls = collectUsedTextMmls(command, new Set(textMmls));
+		const usedIds = [];
+		const usedMmls = [];
+		textMmls.forEach((textMml, i) => {
+			if (usedTextMmls.has(textMml)) {
+				usedMmls.push(textMml);
+				usedIds.push(textMmlIds[i]);
+			}
+		});
 
-		const mml = texParser.create(mmlKind, { "data-cmd-id": commandId, "data-text-mml-ids": textMmlIdsJson }, textMmls);
+		const textMmlIdsJson = JSON.stringify(usedIds);
+
+		const mml = texParser.create(mmlKind, { "data-cmd-id": commandId, "data-text-mml-ids": textMmlIdsJson }, usedMmls);
 		return mml;
 	} else {
 		const pos = parseContext.lastNoSuccess.next.pos();

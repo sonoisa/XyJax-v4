@@ -1407,7 +1407,10 @@ var grammar = {
 	//                       |   'save' | 'restore' | 'POS' | 'afterPOS' | 'drop' | 'connect' | 'xyignore'
 	looseObjectbox: memo(function () {
 		return or(
-			p.objectbox().to(function (o) { return {
+			// The (strict) objectbox is used only when it is the whole entry,
+			// i.e. it is followed by the end of the entry.
+			// Otherwise (e.g. "\mathsf{A}^{x}", "{}_cE", "\ar@{>->}[r]") the entry is parsed as a loose TeX text.
+			p.objectbox().andl(fun(Parsers.guard(fun(p.endOfEntry())))).to(function (o) { return {
 				isEmpty:false, object:o
 			} }),
 			regex(/^[^\\{}%&]+/).opt().to(function (rs) { return rs.getOrElse(""); }).and(fun(
@@ -1444,6 +1447,11 @@ var grammar = {
 		)
 	}),
 	
+	// <end of entry> ::= '&' | '\\' | '}' | '%' | <decor command> | <end of source>
+	endOfEntry: memo(function () {
+		return regexLit(/^(&|\\\\|\}|%|$|\\(ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|relax|xyignore|xyshowAST|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)(?![a-zA-Z]))/);
+	}),
+
 	// <command> ::= <twocell> <twocell switch>* <twocell arrow>
 	twocellCommand: memo(function () {
 		return p.twocell().and(fun(rep(p.twocellSwitch))).and(p.twocellArrow).to(function (tsa) {

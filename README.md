@@ -6,7 +6,7 @@ XyJax is an almost Xy-pic compatible extension for **MathJax version 4**.
 
 This extension enables you to draw various graphs and diagrams.
 
-See https://sonoisa.github.io/xyjax-v3/xyjax-v3.html for more details. And origins
+See https://sonoisa.github.io/xyjax-v4/xyjax-v4.html for more details. And origins
 
 - MathJax: https://www.mathjax.org/
 - Xy-pic: https://www.tug.org/applications/Xy-pic/
@@ -26,7 +26,7 @@ This software is under development.
   MathJax = {
     loader: {
       load: ['[custom]/xypic.js'],
-      paths: {custom: 'https://cdn.jsdelivr.net/gh/sonoisa/XyJax-v4@4.0.0/build/'}
+      paths: {custom: 'https://cdn.jsdelivr.net/gh/sonoisa/XyJax-v4@4/build/'}
     },
     tex: {
       packages: {'[+]': ['xypic']}

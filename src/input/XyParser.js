@@ -210,7 +210,7 @@ var grammar = {
 			lit('[').andr(fun(
 				opt(lit('"').andr(p.id).andl(felem('"'))).to(function (id) { return id.getOrElse(""); }) )
 			).and(fun(rep1(regex(/^[lrud]/)))).and(p.place).andl(flit("]")).to(function (php) {
-				return new AST.Coord.DeltaRowColumn(php.head.head, php.head.tail, new AST.Pos.Place(php.tail));
+				return new AST.Coord.HopsWithPlace(php.head.head, php.head.tail, new AST.Pos.Place(php.tail));
 			})
 		);
 	}),
@@ -417,7 +417,7 @@ var grammar = {
 			p.txt,
 			p.curve,
 			// (decor commands such as "\ar@{->}" are not TeX boxes)
-			regex(/^(\\(?!(ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|relax|xyignore|xyshowAST|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)(?![a-zA-Z]))[a-zA-Z@][a-zA-Z0-9@]+)/).andl(flit("{")).and(p.text).andl(flit("}")).and(p.textNodeCreator).to(function (btc) {
+			regexLit(/^(\\(?!(ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|relax|xyignore|xyshowAST|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)(?![a-zA-Z]))[a-zA-Z@][a-zA-Z0-9@]+)/).andl(flit("{")).and(p.text).andl(flit("}")).and(p.textNodeCreator).to(function (btc) {
 				var bt = btc.head;
 				var createTextNode = btc.tail;
 				return p.toMath(bt.head + "{" + bt.tail + "}", createTextNode);
@@ -616,12 +616,7 @@ var grammar = {
 	//                |   'cC'
 	curveOption: memo(function () {
 		return or(
-			lit("p").to(function () { return new AST.ObjectBox.Curve.Modifier.p(); }),
-			lit("P").to(function () { return new AST.ObjectBox.Curve.Modifier.P(); }),
-			lit("l").to(function () { return new AST.ObjectBox.Curve.Modifier.l(); }),
-			lit("L").to(function () { return new AST.ObjectBox.Curve.Modifier.L(); }),
-			lit("c").to(function () { return new AST.ObjectBox.Curve.Modifier.c(); }),
-			lit("C").to(function () { return new AST.ObjectBox.Curve.Modifier.C(); }),
+			// two-letter options must be tried first
 			lit("pc").to(function () { return new AST.ObjectBox.Curve.Modifier.pc(); }),
 			lit("pC").to(function () { return new AST.ObjectBox.Curve.Modifier.pC(); }),
 			lit("Pc").to(function () { return new AST.ObjectBox.Curve.Modifier.Pc(); }),
@@ -630,7 +625,13 @@ var grammar = {
 			lit("lC").to(function () { return new AST.ObjectBox.Curve.Modifier.lC(); }),
 			lit("Lc").to(function () { return new AST.ObjectBox.Curve.Modifier.Lc(); }),
 			lit("LC").to(function () { return new AST.ObjectBox.Curve.Modifier.LC(); }),
-			lit("cC").to(function () { return new AST.ObjectBox.Curve.Modifier.cC(); })
+			lit("cC").to(function () { return new AST.ObjectBox.Curve.Modifier.cC(); }),
+			lit("p").to(function () { return new AST.ObjectBox.Curve.Modifier.p(); }),
+			lit("P").to(function () { return new AST.ObjectBox.Curve.Modifier.P(); }),
+			lit("l").to(function () { return new AST.ObjectBox.Curve.Modifier.l(); }),
+			lit("L").to(function () { return new AST.ObjectBox.Curve.Modifier.L(); }),
+			lit("c").to(function () { return new AST.ObjectBox.Curve.Modifier.c(); }),
+			lit("C").to(function () { return new AST.ObjectBox.Curve.Modifier.C(); })
 		);
 	}),
 	
@@ -768,7 +769,8 @@ var grammar = {
 	shape: memo(function () {
 		return or(
 			lit(".").to(function () { return new AST.Modifier.Shape.Point(); }),
-			p.frameShape,
+			// e.g. [Fred] is a user-defined shape, not the frame "F" followed by "red"
+			p.frameShape().andl(fun(Parsers.guard(flit("]")))),
 			p.alphabets().to(function (name) {
 				return new AST.Modifier.Shape.Alphabets(name);
 			}),

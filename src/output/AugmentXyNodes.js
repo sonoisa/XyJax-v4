@@ -1375,6 +1375,8 @@ augment(AST.ObjectBox.Curve, {
 		if (objectForDrop === undefined && objectForConnect === undefined) {
 			objectForConnect = new AST.Object(List.empty, new AST.ObjectBox.Dir("", "-"));
 		}
+		// curve option: the last one is used (as Xy-pic does)
+		var option = this.modifiers.isEmpty ? undefined : this.modifiers.reverse().head;
 		
 		var thickness = xypicGlobalContext.measure.thickness;
 		
@@ -1393,6 +1395,29 @@ augment(AST.ObjectBox.Curve, {
 		var shape = Shape.none;
 		var s = p;
 		var e = c;
+		
+		if (option !== undefined) {
+			this.drawControlPoints(context, option, controlPoints, objectForDrop);
+		}
+		var plainObject = new AST.Object(List.empty, new AST.ObjectBox.Dir("", "-"));
+		// draws the curve as the curve option specifies
+		var drawCurve = function (curve) {
+			if (option === undefined) {
+				return curve.toShape(context, objectForDrop, objectForConnect);
+			}
+			switch (option.curveStyle()) {
+				case "plain":
+					return curve.toShape(context, undefined, plainObject);
+				case "styled":
+					return curve.toShape(context, objectForDrop, objectForConnect);
+				case "both":
+					curve.toShape(context, undefined, plainObject);
+					return curve.toShape(context, objectForDrop, objectForConnect);
+				default: // "none"
+					return Shape.none;
+			}
+		};
+		
 		switch (controlPoints.length) {
 			case 0:
 				if (s.x === e.x && s.y === e.y) {
@@ -1400,10 +1425,27 @@ augment(AST.ObjectBox.Curve, {
 					env.angle = 0;
 					return Shape.none;
 				}
-				if (objectForConnect !== undefined) {
-					return objectForConnect.toConnectShape(context);
-				} else {
-					return objectForDrop.toConnectShape(context);
+				var lineObject = (objectForConnect !== undefined ? objectForConnect : objectForDrop);
+				if (option === undefined) {
+					return lineObject.toConnectShape(context);
+				}
+				switch (option.curveStyle()) {
+					case "plain":
+						return plainObject.toConnectShape(context);
+					case "styled":
+						return lineObject.toConnectShape(context);
+					case "both":
+						var plainContext = context.duplicateEnv();
+						plainContext.shape = Shape.none;
+						plainObject.toConnectShape(plainContext);
+						context.appendShapeToFront(plainContext.shape);
+						return lineObject.toConnectShape(context);
+					default: // "none": only sets the last curve
+						var tmpContext = context.duplicateEnv();
+						lineObject.toConnectShape(tmpContext);
+						env.lastCurve = tmpContext.env.lastCurve;
+						env.angle = tmpContext.env.angle;
+						return Shape.none;
 				}
 				
 			case 1:
@@ -1415,7 +1457,7 @@ augment(AST.ObjectBox.Curve, {
 						env.lastCurve = LastCurve.none;
 						return Shape.none;
 				}
-				shape = origBezier.toShape(context, objectForDrop, objectForConnect);
+				shape = drawCurve(origBezier);
 				env.lastCurve = new LastCurve.QuadBezier(origBezier, tOfShavedStart, tOfShavedEnd, shape);
 				env.angle = Math.atan2(e.y - s.y, e.x - s.x);
 				break;
@@ -1429,7 +1471,7 @@ augment(AST.ObjectBox.Curve, {
 						env.lastCurve = LastCurve.none;
 						return Shape.none;
 				}
-				shape = origBezier.toShape(context, objectForDrop, objectForConnect);
+				shape = drawCurve(origBezier);
 				env.lastCurve = new LastCurve.CubicBezier(origBezier, tOfShavedStart, tOfShavedEnd, shape);
 				env.angle = Math.atan2(e.y - s.y, e.x - s.x);
 				break;
@@ -1444,7 +1486,7 @@ augment(AST.ObjectBox.Curve, {
 						env.lastCurve = LastCurve.none;
 						return Shape.none;
 				}
-				shape = origBeziers.toShape(context, objectForDrop, objectForConnect);
+				shape = drawCurve(origBeziers);
 				env.lastCurve = new LastCurve.CubicBSpline(s, e, origBeziers, tOfShavedStart, tOfShavedEnd, shape);
 				env.angle = Math.atan2(e.y - s.y, e.x - s.x);
 				break;
@@ -1455,7 +1497,74 @@ augment(AST.ObjectBox.Curve, {
 //          "stroke-width":"0.02em", stroke:"green"
 //        })
 		return shape;
+	},
+	// draws the control points (~p, ~P) or the lines joining them (~l, ~L)
+	// without changing the environment (c, p, angle and the last curve).
+	drawControlPoints: function (context, option, controlPoints, objectForDrop) {
+		var kind = option.controlPointsKind();
+		if (kind === "none") {
+			return;
+		}
+		var styled = (option.controlPointsStyle() === "styled");
+		var objectForConnect = undefined;
+		this.objects.foreach(function (o) {
+			objectForConnect = o.objectForConnect(objectForConnect);
+		});
+		var tmpContext = context.duplicateEnv();
+		var tmpEnv = tmpContext.env;
+		tmpContext.shape = Shape.none;
+		var dropAt = function (object, point) {
+			tmpEnv.c = point;
+			tmpEnv.angle = 0;
+			object.toDropShape(tmpContext);
+		};
+		if (kind === "points") {
+			// marked with a small cross by default. The connect object is ignored.
+			var mark = (styled && objectForDrop !== undefined ? objectForDrop : new AST.Object(List.empty, new AST.ObjectBox.Dir("", "x")));
+			controlPoints.forEach(function (cp) { dropAt(mark, cp); });
+		} else {
+			// joined by straight lines by default. The drop object (if any) is placed at each control point.
+			var line = (styled && objectForConnect !== undefined ? objectForConnect : new AST.Object(List.empty, new AST.ObjectBox.Dir("", "-")));
+			var points = [tmpEnv.p].concat(controlPoints, [tmpEnv.c]);
+			for (var i = 0; i + 1 < points.length; i++) {
+				tmpEnv.p = points[i];
+				tmpEnv.c = points[i + 1];
+				line.toConnectShape(tmpContext);
+			}
+			if (styled && objectForDrop !== undefined) {
+				controlPoints.forEach(function (cp) { dropAt(objectForDrop, cp); });
+			}
+		}
+		context.appendShapeToFront(tmpContext.shape);
 	}
+});
+
+// meaning of each <curve-option>:
+//   controlPointsKind: "none" | "points" (~p, ~P) | "lines" (~l, ~L)
+//   controlPointsStyle: "plain" (lowercase) | "styled" (uppercase: uses the <curve-object>s)
+//   curveStyle: "none" | "plain" | "styled" (uses the <curve-object>s) | "both" (~cC)
+[
+	["p", "points", "plain", "none"],
+	["P", "points", "styled", "none"],
+	["l", "lines", "plain", "none"],
+	["L", "lines", "styled", "none"],
+	["c", "none", "plain", "styled"],
+	["C", "none", "plain", "styled"],
+	["pc", "points", "plain", "plain"],
+	["pC", "points", "plain", "styled"],
+	["Pc", "points", "styled", "plain"],
+	["PC", "points", "styled", "styled"],
+	["lc", "lines", "plain", "plain"],
+	["lC", "lines", "plain", "styled"],
+	["Lc", "lines", "styled", "plain"],
+	["LC", "lines", "styled", "styled"],
+	["cC", "none", "plain", "both"]
+].forEach(function (def) {
+	augment(AST.ObjectBox.Curve.Modifier[def[0]], {
+		controlPointsKind: function () { return def[1]; },
+		controlPointsStyle: function () { return def[2]; },
+		curveStyle: function () { return def[3]; }
+	});
 });
 
 augment(AST.ObjectBox.Curve.Object.Drop, {
@@ -1595,7 +1704,7 @@ augment(AST.Coord.DeltaRowColumn, {
 		var row = env.xymatrixRow;
 		var col = env.xymatrixCol;
 		if (row === undefined || col === undefined) {
-			throw createXypicError("ExecutionError", "xymatrix rows and columns not found for " + this.toSring());
+			throw createXypicError("ExecutionError", "xymatrix rows and columns not found for " + this.toString());
 		}
 		var id = this.prefix + (row + this.dr) + "," + (col + this.dc);
 		return context.env.lookupPos(id, 'in entry "' + env.xymatrixRow + "," + env.xymatrixCol + '": No ' + this + " (is " + id + ") from here.").position(context);
@@ -1608,7 +1717,7 @@ augment(AST.Coord.Hops, {
 		var row = env.xymatrixRow;
 		var col = env.xymatrixCol;
 		if (row === undefined || col === undefined) {
-			throw createXypicError("ExecutionError", "xymatrix rows and columns not found for " + this.toSring());
+			throw createXypicError("ExecutionError", "xymatrix rows and columns not found for " + this.toString());
 		}
 		this.hops.foreach(function (hop) {
 			switch (hop) {
@@ -1637,7 +1746,7 @@ augment(AST.Coord.HopsWithPlace, {
 		var row = env.xymatrixRow;
 		var col = env.xymatrixCol;
 		if (row === undefined || col === undefined) {
-			throw createXypicError("ExecutionError", "xymatrix rows and columns not found for " + this.toSring());
+			throw createXypicError("ExecutionError", "xymatrix rows and columns not found for " + this.toString());
 		}
 		this.hops.foreach(function (hop) {
 			switch (hop) {
@@ -1657,8 +1766,6 @@ augment(AST.Coord.HopsWithPlace, {
 		});
 		var id = this.prefix + row + "," + col;
 		var pos = context.env.lookupPos(id, 'in entry "' + env.xymatrixRow + "," + env.xymatrixCol + '": No ' + this + " (is " + id + ") from here.").position(context);
-		var c = env.c;
-		
 		var tmpEnv = env.duplicate();
 		tmpEnv.p = env.c;
 		tmpEnv.c = pos;
@@ -2103,10 +2210,25 @@ augment(AST.Modifier.Shape.Alphabets, {
 	}
 });
 
+// whether the modifier is a style (a colour, or a style defined by [=word]).
+// Only styles are saved by [=word], as Xy-pic does.
+function isStyleModifier(modifier) {
+	if (modifier instanceof AST.Modifier.Shape.ChangeColor || modifier instanceof AST.Modifier.Shape.CompositeModifiers) {
+		return true;
+	}
+	if (modifier instanceof AST.Modifier.Shape.Alphabets) {
+		var namedModifier = xypicGlobalContext.repositories.modifierRepository.get(modifier.alphabets);
+		return namedModifier !== undefined && isStyleModifier(namedModifier);
+	}
+	return false;
+}
+
 augment(AST.Modifier.Shape.DefineShape, {
 	preprocess: function (context, reversedProcessedModifiers) {
-		var processedModifiers = reversedProcessedModifiers.reverse();
-		xypicGlobalContext.repositories.modifierRepository.put(this.shape, new AST.Modifier.Shape.CompositeModifiers(processedModifiers));
+		var styleModifiers = reversedProcessedModifiers.foldLeft(List.empty, function (ms, m) {
+			return (isStyleModifier(m) ? ms.prepend(m) : ms);
+		});
+		xypicGlobalContext.repositories.modifierRepository.put(this.shape, new AST.Modifier.Shape.CompositeModifiers(styleModifiers));
 	},
 	modifyShape: function (context, objectShape, restModifiers) {
 		return this.proceedModifyShape(context, objectShape, restModifiers);

@@ -109,3 +109,6 @@ mathjax/
 
 # Mac
 .DS_Store
+
+# tmp
+tmp/
